@@ -10,7 +10,6 @@ namespace HyperSocket.Http
         public HttpRequest Request;
         public HttpResponse Response;
         public int KeepAliveCount;
-        public int State;
 
         public void Dispose()
         {
