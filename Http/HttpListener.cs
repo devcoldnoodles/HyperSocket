@@ -374,8 +374,9 @@ namespace HyperSocket.Http
         }
         private void ErrorHandle(UserToken client, SocketAsyncEventArgs e)
         {
-            handlers.Enqueue(e);
+            client.Dispose();
             client.Socket.Close();
+            handlers.Enqueue(e);
         }
     }
 }

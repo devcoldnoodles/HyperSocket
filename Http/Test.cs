@@ -28,7 +28,7 @@ public static class Test
                 switch (Request.Method)
                 {
                     case HttpMethod.Get:
-                        FileInfo file = new FileInfo($"WebContent/resource{Request.URL}");
+                        FileInfo file = new FileInfo($"D:/WebContent{Request.URL}");
                         if (!file.Exists)
                         {
                             if (Request.URL == "/")
@@ -39,7 +39,7 @@ public static class Test
                             else
                             {
                                 Response.StatusCode = HttpStatusCode.NotFound;
-                                Response.SendFile("WebContent/resource/error.html");
+                                Response.SendFile("D:/WebContent/error.html");
                             }
                             return true;
                         }
