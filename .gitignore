@@ -2,3 +2,4 @@ Http/.vscode/
 Http/bin/
 Http/obj/
 *.csproj
+Http/Test.cs
