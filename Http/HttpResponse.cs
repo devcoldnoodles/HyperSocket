@@ -26,11 +26,11 @@ namespace HyperSocket.Http
             Send(new FileStream(value, FileMode.Open, FileAccess.Read, FileShare.Read));
             ContentType = Mapping(Path.GetExtension(value));
         }
-        public void ChunkedStream(Stream value)
-        {
-            TransferEncoding = "chunked";
-            Content = value;
-        }
+        // public void ChunkedStream(Stream value)
+        // {
+        //     TransferEncoding = "chunked";
+        //     Content = value;
+        // }
         public override string ToString()
         {
             StringBuilder temp = new StringBuilder($"HTTP/{Protocol.ToString()} {(short)StatusCode}\r\n");
@@ -50,7 +50,7 @@ namespace HyperSocket.Http
                 case ".3gpp": return "video/3gpp";
                 case ".7z": return "application/x-7z-compressed";
                 case ".aa": return "audio/audible";
-                case ".AAC": return "audio/aac";
+                case ".aac": return "audio/aac";
                 case ".aaf": return "application/octet-stream";
                 case ".aax": return "audio/vnd.audible.aax";
                 case ".ac3": return "audio/ac3";
@@ -64,12 +64,12 @@ namespace HyperSocket.Http
                 case ".accdw": return "application/msaccess.webapplication";
                 case ".accft": return "application/msaccess.ftemplate";
                 case ".acx": return "application/internet-property-stream";
-                case ".AddIn": return "text/xml";
+                case ".addin": return "text/xml";
                 case ".ade": return "application/msaccess";
                 case ".adobebridge": return "application/x-bridge-url";
                 case ".adp": return "application/msaccess";
-                case ".ADT": return "audio/vnd.dlna.adts";
-                case ".ADTS": return "audio/aac";
+                case ".adt": return "audio/vnd.dlna.adts";
+                case ".adts": return "audio/aac";
                 case ".afm": return "application/octet-stream";
                 case ".ai": return "application/postscript";
                 case ".aif": return "audio/x-aiff";

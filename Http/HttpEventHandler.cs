@@ -2,7 +2,7 @@ namespace HyperSocket.Http
 {
     public class HttpEventHandler : HttpRouter
     {
-        private static HttpRouterEvent Defualt = (request, response) => false;
+        private static HttpRouterEvent Defualt = (request, response) => {};
         public HttpRouterEvent Delete = Defualt;
         public HttpRouterEvent Get = Defualt;
         public HttpRouterEvent Head = Defualt;
@@ -18,21 +18,29 @@ namespace HyperSocket.Http
                 switch (req.Method)
                 {
                     case HttpMethod.Delete:
-                        return Delete(req, res);
+                        Delete(req, res);
+                        break;
                     case HttpMethod.Get:
-                        return Get(req, res);
+                        Get(req, res);
+                        break;
                     case HttpMethod.Head:
-                        return Head(req, res);
+                        Head(req, res);
+                        break;
                     case HttpMethod.Options:
-                        return Options(req, res);
+                        Options(req, res);
+                        break;
                     case HttpMethod.Post:
-                        return Post(req, res);
+                        Post(req, res);
+                        break;
                     case HttpMethod.Put:
-                        return Put(req, res);
+                        Put(req, res);
+                        break;
                     case HttpMethod.Trace:
-                        return Trace(req, res);
+                        Trace(req, res);
+                        break;
                     default:
-                        return Defualt(req, res);
+                        Defualt(req, res);
+                        break;
                 }
             };
         }

@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace HyperSocket.Http
 {
@@ -19,12 +20,13 @@ namespace HyperSocket.Http
         private HttpOptions options;
         private List<HttpRouter> routers = new List<HttpRouter>();
 
-        public bool IsRun { get; private set; } = false;
+        public bool IsRunning { get; private set; } = false;
         public List<HttpRouter> Routers { get { return routers; } }
 
-        public void Start(HttpOptions value)
+        public void Start(HttpOptions value = null)
         {
-            options = value;
+            if (value == null) options = new HttpOptions();
+            else options = value;
             socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             try
             {
@@ -56,7 +58,7 @@ namespace HyperSocket.Http
                 handlers.Enqueue(handler);
             }
             //source = new CancellationTokenSource();
-            IsRun = true;
+            IsRunning = true;
             socket.Listen(options.BacklogSize);
             SocketAsyncEventArgs args = new SocketAsyncEventArgs();
             args.Completed += new EventHandler<SocketAsyncEventArgs>(AcceptProcess);
@@ -67,7 +69,7 @@ namespace HyperSocket.Http
         public void Stop()
         {
             //source?.Cancel();
-            IsRun = false;
+            IsRunning = false;
             socket?.Close();
         }
         private static int IndexOf(byte[] source, byte[] dest, int offset = 0)
@@ -195,50 +197,47 @@ namespace HyperSocket.Http
                 int markIndex = IndexOf(e.Buffer, DCRLF, e.Offset);
                 if (markIndex == -1)
                 {
-                    Console.WriteLine("Invalid Format");
+                    Debug.Print("Invalid Format");
                     ErrorHandle(client, e);
                     return;
                 }
-                using (StringReader reader = new StringReader(Encoding.ASCII.GetString(e.Buffer, e.Offset, markIndex - e.Offset)))
+                using (StringReader reader = new StringReader(Encoding.ASCII.GetString(e.Buffer, e.Offset, markIndex - e.Offset - DCRLF.Length)))
                 {
                     string[] startLine = reader.ReadLine().Split(' ');
                     if (startLine.Length != 3 ||
                     !Enum.TryParse(startLine[0], true, out Request.Method) ||
-                    !startLine[1].StartsWith("/") ||
+                    !(Request.URL = startLine[1]).StartsWith("/") ||
                     !startLine[2].StartsWith("HTTP/") ||
                     !Version.TryParse(startLine[2].Substring(5), out Request.Protocol))
                     {
-                        Console.WriteLine("invalid http protocol");
+                        Debug.Print("invalid http protocol");
                         ErrorHandle(client, e);
                         return;
                     }
-                    Request.URL = startLine[1];
                     string property;
                     while ((property = reader.ReadLine()) != null)
                     {
                         int colonIndex = property.IndexOf(":");
                         if (colonIndex == -1)
-                            continue;
-                        string name = property.Substring(0, colonIndex).Trim();
-                        string[] values = property.Substring(colonIndex + 1).Split(';');
-                        Request.Header[name] = values[0].Trim();
-                        for (int valueIndex = 0; valueIndex < values.Length; ++valueIndex)
                         {
-                            int equalIndex = values[valueIndex].IndexOf("=");
-                            if (equalIndex >= 0)
-                                Request.Header[name + ":" + values[valueIndex].Substring(0, equalIndex).Trim()] = values[valueIndex].Substring(equalIndex + 1).Trim();
+                            Debug.Print("Invalid Header Format");
+                            ErrorHandle(client, e);
+                            return;
                         }
+                        Request.Header[property.Substring(0, colonIndex)] = property.Substring(colonIndex + 1);
                     }
                 }
                 int questionIndex = Request.URL.IndexOf('?');
                 if (questionIndex > 0)
                 {
+                    var dataset = new Dictionary<string, string>();
                     foreach (string property in Request.URL.Substring(questionIndex + 1).Split('&'))
                     {
                         int equalIndex = property.IndexOf("=");
                         if (equalIndex >= 0)
-                            Request.Form[UrlDecode(property.Substring(0, equalIndex)).Trim()] = UrlDecode(property.Substring(equalIndex + 1)).Trim();
+                            dataset[UrlDecode(property.Substring(0, equalIndex)).Trim()] = UrlDecode(property.Substring(equalIndex + 1)).Trim();
                     }
+                    Request.Arguments = dataset;
                     Request.URL = Request.URL.Substring(0, questionIndex);
                 }
                 Request.URL = UrlDecode(Request.URL);
@@ -257,17 +256,19 @@ namespace HyperSocket.Http
             switch (Request.ContentType)
             {
                 case "application/x-www-form-urlencoded":
+                    var dataset = new Dictionary<string, string>();
                     foreach (string property in Encoding.ASCII.GetString((Request.Content as MemoryStream).GetBuffer()).Split('&'))
                     {
                         int equalIndex = property.IndexOf("=");
                         if (equalIndex >= 0)
-                            Request.Form[UrlDecode(property.Substring(0, equalIndex).Trim())] = UrlDecode(property.Substring(equalIndex + 1).Trim());
+                            dataset[UrlDecode(property.Substring(0, equalIndex).Trim())] = UrlDecode(property.Substring(equalIndex + 1).Trim());
                     }
+                    Request.Arguments = dataset;
                     break;
                 case "multipart/form-data":
                     if (!Request.Header.ContainsKey("Content-Type:boundary"))
                     {
-                        Console.WriteLine("invalid boundary");
+                        Debug.Print("Invalid boundary");
                         ErrorHandle(client, e);
                         return;
                     }
@@ -302,7 +303,7 @@ namespace HyperSocket.Http
                         }
                         if ((headIndex = IndexOf(data, boundary, rearIndex)) == -1)
                         {
-                            Console.WriteLine("invalid boundary");
+                            Debug.Print("Invalid boundary");
                             ErrorHandle(client, e);
                             return;
                         }
@@ -311,7 +312,7 @@ namespace HyperSocket.Http
                         multipart.Add(multipartdata);
                         continue;
                     }
-                    Request = client.Request = new HttpMultipartRequest(Request, multipart);
+                    Request.Arguments = multipart;
                     break;
             }
 
@@ -321,12 +322,11 @@ namespace HyperSocket.Http
                 {
                     try
                     {
-                        if (router.handle(Request, Response))
-                            break;
+                        router.handle(Request, Response);
                     }
                     catch (Exception exception)
                     {
-                        Console.WriteLine(exception);
+                        Debug.Print(exception.ToString());
                         ErrorHandle(client, e);
                         return;
                     }
