@@ -5,11 +5,11 @@ namespace HyperSocket.Http
 {
     internal sealed class UserToken : IDisposable
     {
-        public Socket Socket;
-        public DateTime Timeout;
-        public HttpRequest Request;
-        public HttpResponse Response;
-        public int KeepAliveCount;
+        internal Socket Socket { get; set; }
+        internal DateTime Timeout { get; set; }
+        internal HttpRequest Request { get; set; }
+        internal HttpResponse Response { get; set; }
+        internal int KeepAliveCount;
 
         public void Dispose()
         {

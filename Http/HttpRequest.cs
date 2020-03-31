@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace HyperSocket.Http
 {
@@ -9,6 +10,7 @@ namespace HyperSocket.Http
         public string URL;
         public Version Protocol;
         public Dictionary<string, object> Session { get; internal set; }
+        public Match Match;
         internal object dataset;
 
         public string GetParameter(string param)

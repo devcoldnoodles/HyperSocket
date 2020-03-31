@@ -1,10 +1,10 @@
 namespace HyperSocket.Http
 {
+    public delegate void HttpRouterEvent(HttpRequest request, HttpResponse response);
     public class HttpRouter
     {
-        public string regex;
-        public string description;        
-        public object data;
+        public string pattern;
+        public string description;
         public HttpRouterEvent handle;
     }
 }

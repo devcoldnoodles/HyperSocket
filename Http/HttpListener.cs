@@ -163,8 +163,6 @@ namespace HyperSocket.Http
         private void ReceiveProcess(object sender, SocketAsyncEventArgs e)
         {
             UserToken client = (UserToken)e.UserToken;
-            HttpRequest Request = client.Request;
-            HttpResponse Response = client.Response;
             if (e.SocketError != SocketError.Success || e.BytesTransferred == 0)
             {
                 ErrorHandle(client, e);
@@ -193,7 +191,7 @@ namespace HyperSocket.Http
             }
             else
             {
-                Request = client.Request = new HttpRequest();
+                client.Request = client.Request = new HttpRequest();
                 int markIndex = IndexOf(e.Buffer, DCRLF, e.Offset);
                 if (markIndex == -1)
                 {
@@ -205,10 +203,10 @@ namespace HyperSocket.Http
                 {
                     string[] startLine = reader.ReadLine().Split(' ');
                     if (startLine.Length != 3 ||
-                    !Enum.TryParse(startLine[0], true, out Request.Method) ||
-                    !(Request.URL = startLine[1]).StartsWith("/") ||
+                    !Enum.TryParse(startLine[0], true, out client.Request.Method) ||
+                    !(client.Request.URL = startLine[1]).StartsWith("/") ||
                     !startLine[2].StartsWith("HTTP/") ||
-                    !Version.TryParse(startLine[2].Substring(5), out Request.Protocol))
+                    !Version.TryParse(startLine[2].Substring(5), out client.Request.Protocol))
                     {
                         Debug.Print("invalid http protocol");
                         ErrorHandle(client, e);
@@ -224,14 +222,14 @@ namespace HyperSocket.Http
                             ErrorHandle(client, e);
                             return;
                         }
-                        Request.Header[property.Substring(0, colonIndex)] = property.Substring(colonIndex + 1);
+                        client.Request.Header[property.Substring(0, colonIndex)] = property.Substring(colonIndex + 1);
                     }
                 }
-                if (int.TryParse(Request.ContentLength, out int contentLength))
+                if (int.TryParse(client.Request.ContentLength, out int contentLength))
                 {
-                    Request.Content = new MemoryStream(new byte[contentLength], 0, contentLength, true, true);
-                    Request.Content.Write(e.Buffer, markIndex, e.BytesTransferred - markIndex);
-                    if (Request.Content.Position < Request.Content.Length)
+                    client.Request.Content = new MemoryStream(new byte[contentLength], 0, contentLength, true, true);
+                    client.Request.Content.Write(e.Buffer, markIndex, e.BytesTransferred - markIndex);
+                    if (client.Request.Content.Position < client.Request.Content.Length)
                     {
                         if (!client.Socket.ReceiveAsync(e))
                             ReceiveProcess(client.Socket, e);
@@ -239,46 +237,46 @@ namespace HyperSocket.Http
                     }
                 }
             }
-            switch (Request.Method)
+            switch (client.Request.Method)
             {
                 case HttpMethod.Get:
-                    int questionIndex = Request.URL.IndexOf('?');
+                    int questionIndex = client.Request.URL.IndexOf('?');
                     if (questionIndex > 0)
                     {
                         var dataset = new Dictionary<string, string>();
-                        foreach (string property in Request.URL.Substring(questionIndex + 1).Split('&'))
+                        foreach (string property in client.Request.URL.Substring(questionIndex + 1).Split('&'))
                         {
                             int equalIndex = property.IndexOf("=");
                             if (equalIndex >= 0)
                                 dataset[UrlDecode(property.Substring(0, equalIndex)).Trim()] = UrlDecode(property.Substring(equalIndex + 1)).Trim();
                         }
-                        Request.dataset = dataset;
-                        Request.URL = Request.URL.Substring(0, questionIndex);
+                        client.Request.dataset = dataset;
+                        client.Request.URL = client.Request.URL.Substring(0, questionIndex);
                     }
-                    Request.URL = UrlDecode(Request.URL);
+                    client.Request.URL = UrlDecode(client.Request.URL);
                     break;
                 case HttpMethod.Post:
-                    switch (Request.ContentType)
+                    switch (client.Request.ContentType)
                     {
                         case "application/x-www-form-urlencoded":
                             var dataset = new Dictionary<string, string>();
-                            foreach (string property in Encoding.ASCII.GetString((Request.Content as MemoryStream).GetBuffer()).Split('&'))
+                            foreach (string property in Encoding.ASCII.GetString((client.Request.Content as MemoryStream).GetBuffer()).Split('&'))
                             {
                                 int equalIndex = property.IndexOf("=");
                                 if (equalIndex >= 0)
                                     dataset[UrlDecode(property.Substring(0, equalIndex).Trim())] = UrlDecode(property.Substring(equalIndex + 1).Trim());
                             }
-                            Request.dataset = dataset;
+                            client.Request.dataset = dataset;
                             break;
                         case "multipart/form-data":
-                            if (!Request.Header.ContainsKey("Content-Type:boundary"))
+                            if (!client.Request.Header.ContainsKey("Content-Type:boundary"))
                             {
                                 Debug.Print("Invalid boundary");
                                 ErrorHandle(client, e);
                                 return;
                             }
-                            byte[] data = (Request.Content as MemoryStream).GetBuffer();
-                            byte[] boundary = Encoding.ASCII.GetBytes("--" + Request.Header["Content-Type:boundary"]);
+                            byte[] data = (client.Request.Content as MemoryStream).GetBuffer();
+                            byte[] boundary = Encoding.ASCII.GetBytes("--" + client.Request.Header["Content-Type:boundary"]);
                             int headIndex = IndexOf(data, boundary, 0);
                             int rearIndex = 0;
                             List<HttpGeneralFormat> multipart = new List<HttpGeneralFormat>();
@@ -317,18 +315,18 @@ namespace HyperSocket.Http
                                 multipart.Add(multipartdata);
                                 continue;
                             }
-                            Request.dataset = multipart;
+                            client.Request.dataset = multipart;
                             break;
                     }
                     break;
             }
             foreach (var router in routers)
             {
-                if (Regex.IsMatch(Request.URL, router.regex))
+                if ((client.Request.Match = Regex.Match(client.Request.URL, router.pattern)).Success)
                 {
                     try
                     {
-                        router.handle(Request, Response);
+                        router.handle(client.Request, client.Response);
                     }
                     catch (Exception exception)
                     {
@@ -338,13 +336,13 @@ namespace HyperSocket.Http
                     }
                 }
             }
-            if (options.KeepAlive && Request.Connection.ToLower() == "keep-alive" && client.KeepAliveCount >= 0)
+            if (options.KeepAlive && client.Request.Connection.ToLower() == "keep-alive" && client.KeepAliveCount >= 0)
             {
                 client.Timeout = DateTime.Now.AddSeconds(options.KeepAliveTimeout);
-                Response.Connection = "keep-alive";
-                Response.KeepAlive = $"timeout={options.KeepAliveTimeout},max={--client.KeepAliveCount}";
+                client.Response.Connection = "keep-alive";
+                client.Response.KeepAlive = $"timeout={options.KeepAliveTimeout},max={--client.KeepAliveCount}";
             }
-            string output = Response.ToString();
+            string output = client.Response.ToString();
             e.SetBuffer(e.Offset, Encoding.UTF8.GetBytes(output, 0, output.Length, e.Buffer, e.Offset));
             e.UserToken = client;
             if (!client.Socket.SendAsync(e))

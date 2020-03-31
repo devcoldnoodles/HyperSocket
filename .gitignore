@@ -3,3 +3,4 @@ Http/bin/
 Http/obj/
 *.csproj
 Http/Test.cs
+Http/CSPExpression.cs
