@@ -93,7 +93,7 @@ namespace HyperSocket.Http
         }
         private static string UrlDecode(byte[] source, int offset, int size)
         {
-            if (source == null || offset < 0 || size <= 0 || source.Length - offset - size < 0)
+            if (source == null || offset < 0 || size < 0 || source.Length - offset - size < 0)
                 return null;
             byte[] copy = new byte[size - offset];
             int copy_index = 0;
@@ -227,20 +227,6 @@ namespace HyperSocket.Http
                         Request.Header[property.Substring(0, colonIndex)] = property.Substring(colonIndex + 1);
                     }
                 }
-                int questionIndex = Request.URL.IndexOf('?');
-                if (questionIndex > 0)
-                {
-                    var dataset = new Dictionary<string, string>();
-                    foreach (string property in Request.URL.Substring(questionIndex + 1).Split('&'))
-                    {
-                        int equalIndex = property.IndexOf("=");
-                        if (equalIndex >= 0)
-                            dataset[UrlDecode(property.Substring(0, equalIndex)).Trim()] = UrlDecode(property.Substring(equalIndex + 1)).Trim();
-                    }
-                    Request.Arguments = dataset;
-                    Request.URL = Request.URL.Substring(0, questionIndex);
-                }
-                Request.URL = UrlDecode(Request.URL);
                 if (int.TryParse(Request.ContentLength, out int contentLength))
                 {
                     Request.Content = new MemoryStream(new byte[contentLength], 0, contentLength, true, true);
@@ -253,69 +239,89 @@ namespace HyperSocket.Http
                     }
                 }
             }
-            switch (Request.ContentType)
+            switch (Request.Method)
             {
-                case "application/x-www-form-urlencoded":
-                    var dataset = new Dictionary<string, string>();
-                    foreach (string property in Encoding.ASCII.GetString((Request.Content as MemoryStream).GetBuffer()).Split('&'))
+                case HttpMethod.Get:
+                    int questionIndex = Request.URL.IndexOf('?');
+                    if (questionIndex > 0)
                     {
-                        int equalIndex = property.IndexOf("=");
-                        if (equalIndex >= 0)
-                            dataset[UrlDecode(property.Substring(0, equalIndex).Trim())] = UrlDecode(property.Substring(equalIndex + 1).Trim());
+                        var dataset = new Dictionary<string, string>();
+                        foreach (string property in Request.URL.Substring(questionIndex + 1).Split('&'))
+                        {
+                            int equalIndex = property.IndexOf("=");
+                            if (equalIndex >= 0)
+                                dataset[UrlDecode(property.Substring(0, equalIndex)).Trim()] = UrlDecode(property.Substring(equalIndex + 1)).Trim();
+                        }
+                        Request.dataset = dataset;
+                        Request.URL = Request.URL.Substring(0, questionIndex);
                     }
-                    Request.Arguments = dataset;
+                    Request.URL = UrlDecode(Request.URL);
                     break;
-                case "multipart/form-data":
-                    if (!Request.Header.ContainsKey("Content-Type:boundary"))
+                case HttpMethod.Post:
+                    switch (Request.ContentType)
                     {
-                        Debug.Print("Invalid boundary");
-                        ErrorHandle(client, e);
-                        return;
-                    }
-                    byte[] data = (Request.Content as MemoryStream).GetBuffer();
-                    byte[] boundary = Encoding.ASCII.GetBytes("--" + Request.Header["Content-Type:boundary"]);
-                    int headIndex = IndexOf(data, boundary, 0);
-                    int rearIndex = 0;
-                    List<HttpGeneralFormat> multipart = new List<HttpGeneralFormat>();
-                    while (true)
-                    {
-                        HttpGeneralFormat multipartdata = new HttpGeneralFormat();
-                        if (headIndex == -1 || (rearIndex = IndexOf(data, DCRLF, headIndex + CRLF.Length)) == -1)
-                            break;
-                        using (StringReader reader = new StringReader(Encoding.ASCII.GetString(data, headIndex + CRLF.Length, rearIndex - headIndex - CRLF.Length)))
-                        {
-                            string property;
-                            while ((property = reader.ReadLine()) != null)
+                        case "application/x-www-form-urlencoded":
+                            var dataset = new Dictionary<string, string>();
+                            foreach (string property in Encoding.ASCII.GetString((Request.Content as MemoryStream).GetBuffer()).Split('&'))
                             {
-                                int colonIndex = property.IndexOf(":");
-                                if (colonIndex < 0)
-                                    continue;
-                                string name = property.Substring(0, colonIndex).Trim();
-                                string[] values = property.Substring(colonIndex + 1).Split(';');
-                                multipartdata.Header[name] = values[0].Trim();
-                                for (int valueIndex = 1; valueIndex < values.Length; ++valueIndex)
-                                {
-                                    int equalIndex = values[valueIndex].IndexOf("=");
-                                    if (equalIndex >= 0)
-                                        multipartdata.Header[name + ":" + values[valueIndex].Substring(0, equalIndex).Trim()] = values[valueIndex].Substring(equalIndex + 1).Trim();
-                                }
+                                int equalIndex = property.IndexOf("=");
+                                if (equalIndex >= 0)
+                                    dataset[UrlDecode(property.Substring(0, equalIndex).Trim())] = UrlDecode(property.Substring(equalIndex + 1).Trim());
                             }
-                        }
-                        if ((headIndex = IndexOf(data, boundary, rearIndex)) == -1)
-                        {
-                            Debug.Print("Invalid boundary");
-                            ErrorHandle(client, e);
-                            return;
-                        }
-                        multipartdata.Content = new MemoryStream(headIndex - rearIndex - boundary.Length - CRLF.Length);
-                        multipartdata.Content.Write(data, rearIndex, headIndex - rearIndex - boundary.Length - CRLF.Length);
-                        multipart.Add(multipartdata);
-                        continue;
+                            Request.dataset = dataset;
+                            break;
+                        case "multipart/form-data":
+                            if (!Request.Header.ContainsKey("Content-Type:boundary"))
+                            {
+                                Debug.Print("Invalid boundary");
+                                ErrorHandle(client, e);
+                                return;
+                            }
+                            byte[] data = (Request.Content as MemoryStream).GetBuffer();
+                            byte[] boundary = Encoding.ASCII.GetBytes("--" + Request.Header["Content-Type:boundary"]);
+                            int headIndex = IndexOf(data, boundary, 0);
+                            int rearIndex = 0;
+                            List<HttpGeneralFormat> multipart = new List<HttpGeneralFormat>();
+                            while (true)
+                            {
+                                HttpGeneralFormat multipartdata = new HttpGeneralFormat();
+                                if (headIndex == -1 || (rearIndex = IndexOf(data, DCRLF, headIndex + CRLF.Length)) == -1)
+                                    break;
+                                using (StringReader reader = new StringReader(Encoding.ASCII.GetString(data, headIndex + CRLF.Length, rearIndex - headIndex - CRLF.Length)))
+                                {
+                                    string property;
+                                    while ((property = reader.ReadLine()) != null)
+                                    {
+                                        int colonIndex = property.IndexOf(":");
+                                        if (colonIndex < 0)
+                                            continue;
+                                        string name = property.Substring(0, colonIndex).Trim();
+                                        string[] values = property.Substring(colonIndex + 1).Split(';');
+                                        multipartdata.Header[name] = values[0].Trim();
+                                        for (int valueIndex = 1; valueIndex < values.Length; ++valueIndex)
+                                        {
+                                            int equalIndex = values[valueIndex].IndexOf("=");
+                                            if (equalIndex >= 0)
+                                                multipartdata.Header[name + ":" + values[valueIndex].Substring(0, equalIndex).Trim()] = values[valueIndex].Substring(equalIndex + 1).Trim();
+                                        }
+                                    }
+                                }
+                                if ((headIndex = IndexOf(data, boundary, rearIndex)) == -1)
+                                {
+                                    Debug.Print("Invalid boundary");
+                                    ErrorHandle(client, e);
+                                    return;
+                                }
+                                multipartdata.Content = new MemoryStream(headIndex - rearIndex - boundary.Length - CRLF.Length);
+                                multipartdata.Content.Write(data, rearIndex, headIndex - rearIndex - boundary.Length - CRLF.Length);
+                                multipart.Add(multipartdata);
+                                continue;
+                            }
+                            Request.dataset = multipart;
+                            break;
                     }
-                    Request.Arguments = multipart;
                     break;
             }
-
             foreach (var router in routers)
             {
                 if (Regex.IsMatch(Request.URL, router.regex))
@@ -358,19 +364,18 @@ namespace HyperSocket.Http
                 {
                     client.Response.Content.Close();
                     client.Response.Content = null;
-                    if (!client.Socket.ReceiveAsync(e))
-                        ReceiveProcess(client.Socket, e);
-                    return;
+                    goto WaitRecv;
                 }
                 e.SetBuffer(e.Offset, client.Response.Content.Read(e.Buffer, e.Offset, e.Buffer.Length));
                 if (!client.Socket.SendAsync(e))
                     SendProcess(sender, e);
+                return;
             }
-            else
-            {
-                if (!client.Socket.ReceiveAsync(e))
-                    ReceiveProcess(client.Socket, e);
-            }
+        WaitRecv:
+            if (client.Request.Connection.ToLower() == "close")
+                ErrorHandle(client, e);
+            else if (!client.Socket.ReceiveAsync(e))
+                ReceiveProcess(client.Socket, e);
         }
         private void ErrorHandle(UserToken client, SocketAsyncEventArgs e)
         {

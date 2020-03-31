@@ -9,19 +9,13 @@ namespace HyperSocket.Http
         public string URL;
         public Version Protocol;
         public Dictionary<string, object> Session { get; internal set; }
-        internal object Arguments;
+        internal object dataset;
 
-        public object GetParameter(string param)
+        public string GetParameter(string param)
         {
-            switch (ContentType.ToLower())
-            {
-                case "application/x-www-form-urlencoded":
-                    return ((Dictionary<string, string>)Arguments)[param];
-                case "multipart/form-data":
-                    return Arguments;
-                default:
-                    return null;
-            }
+            if (dataset != null && (Method == HttpMethod.Get || Method == HttpMethod.Post && ContentType.ToLower() == "application/x-www-form-urlencoded"))
+                return ((Dictionary<string, string>)dataset)[param];
+            return string.Empty;
         }
     }
 }
