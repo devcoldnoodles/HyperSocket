@@ -171,14 +171,14 @@ namespace HyperSocket.Http
             if (e.Count != options.BufferSize)
                 e.SetBuffer(e.Offset, options.BufferSize);
             Console.WriteLine(Encoding.ASCII.GetString(e.Buffer, e.Offset, e.BytesTransferred));
-            //HttpParser.Parse(e.Buffer, e.Offset, e.BytesTransferred);
-            switch (e.LastOperation)
-            {
-                case SocketAsyncOperation.Receive:
-                    break;
-                case SocketAsyncOperation.Send:
-                    break;
-            }
+            // HttpParser.Parse(e.Buffer, e.Offset, e.BytesTransferred);
+            // switch (e.LastOperation)
+            // {
+            //     case SocketAsyncOperation.Receive:
+            //         break;
+            //     case SocketAsyncOperation.Send:
+            //         break;
+            // }
             if (client.Request != null && client.Response.Content != null)
             {
                 client.Request.Content.Write(e.Buffer, e.Offset, e.BytesTransferred);
@@ -293,15 +293,7 @@ namespace HyperSocket.Http
                                         int colonIndex = property.IndexOf(":");
                                         if (colonIndex < 0)
                                             continue;
-                                        string name = property.Substring(0, colonIndex).Trim();
-                                        string[] values = property.Substring(colonIndex + 1).Split(';');
-                                        multipartdata.Header[name] = values[0].Trim();
-                                        for (int valueIndex = 1; valueIndex < values.Length; ++valueIndex)
-                                        {
-                                            int equalIndex = values[valueIndex].IndexOf("=");
-                                            if (equalIndex >= 0)
-                                                multipartdata.Header[name + ":" + values[valueIndex].Substring(0, equalIndex).Trim()] = values[valueIndex].Substring(equalIndex + 1).Trim();
-                                        }
+                                        multipartdata.Header[property.Substring(0, colonIndex)] = property.Substring(colonIndex + 1);
                                     }
                                 }
                                 if ((headIndex = IndexOf(data, boundary, rearIndex)) == -1)

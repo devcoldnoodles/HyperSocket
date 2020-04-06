@@ -1,6 +1,7 @@
 # HyperSocket
+HyperSocket은 다양한 통신 프로토콜을 지원하는 라이브러리입니다.
+
 HyperSocket.Http는 간단하게 Http서버를 만들어주는 라이브러리입니다.
-백문불여일견 예제로 설명드리겠습니다.
 ```
 using System;
 using HyperSocket.Http;
