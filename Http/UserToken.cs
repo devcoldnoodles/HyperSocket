@@ -3,13 +3,13 @@ using System.Net.Sockets;
 
 namespace HyperSocket.Http
 {
-    internal sealed class UserToken : IDisposable
+    public sealed class UserToken : IDisposable
     {
-        internal Socket Socket { get; set; }
-        internal DateTime Timeout { get; set; }
-        internal HttpRequest Request { get; set; }
-        internal HttpResponse Response { get; set; }
-        internal int KeepAliveCount;
+        public Socket Socket { get; internal set; }
+        public DateTime Timeout { get; internal set; }
+        public HttpRequest Request { get; internal set; }
+        public HttpResponse Response { get; internal set; }
+        public int KeepAliveCount;
 
         public void Dispose()
         {

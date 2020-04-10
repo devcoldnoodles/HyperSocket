@@ -1,6 +1,6 @@
 namespace HyperSocket.Http
 {
-    public class HttpEventHandler : HttpRouter
+    public class HttpRouterEventHandler : HttpRouter
     {
         private static HttpRouterEvent Defualt = (request, response) => {};
         public HttpRouterEvent Delete = Defualt;
@@ -11,7 +11,7 @@ namespace HyperSocket.Http
         public HttpRouterEvent Put = Defualt;
         public HttpRouterEvent Trace = Defualt;
 
-        public HttpEventHandler()
+        public HttpRouterEventHandler()
         {
             handle = (req, res) =>
             {

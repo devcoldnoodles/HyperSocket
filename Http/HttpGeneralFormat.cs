@@ -6,7 +6,7 @@ namespace HyperSocket.Http
 {
     public class HttpGeneralFormat : IDisposable
     {
-        public Dictionary<string, string> Header { get; internal set; } = new Dictionary<string, string>();
+        public Dictionary<string, object> Header { get; internal set; } = new Dictionary<string, object>();
         public Stream Content { get; internal set; }
 
         ~HttpGeneralFormat()

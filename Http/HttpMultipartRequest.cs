@@ -6,7 +6,7 @@ namespace HyperSocket.Http
     {
         public new List<HttpGeneralFormat> GetParameter(string param = null)
         {
-            if (ContentType.ToLower() != "multipart/form-data")
+            if (ContentType.Value.ToLower() != "multipart/form-data")
                 return null;
             if (param == null)
                 return dataset as List<HttpGeneralFormat>;

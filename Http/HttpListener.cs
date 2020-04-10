@@ -218,6 +218,7 @@ namespace HyperSocket.Http
                         int colonIndex = property.IndexOf(":");
                         if (colonIndex == -1)
                         {
+
                             Debug.Print("Invalid Header Format");
                             ErrorHandle(client, e);
                             return;
@@ -256,7 +257,9 @@ namespace HyperSocket.Http
                     client.Request.URL = UrlDecode(client.Request.URL);
                     break;
                 case HttpMethod.Post:
-                    switch (client.Request.ContentType)
+                    int semicolonIndex = client.Request.ContentType.IndexOf(';');
+                    if(semicolonIndex == -1)    semicolonIndex = client.Request.ContentType.Length;
+                    switch (client.Request.ContentType.Substring(0, semicolonIndex))
                     {
                         case "application/x-www-form-urlencoded":
                             var dataset = new Dictionary<string, string>();
