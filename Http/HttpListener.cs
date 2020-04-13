@@ -7,14 +7,12 @@ using System.Net.Sockets;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using static HyperSocket.Http.Utility;
 
 namespace HyperSocket.Http
 {
     public sealed class HttpListener
     {
-        private static readonly byte[] CRLF = { 0x0D, 0x0A };
-        private static readonly byte[] DCRLF = { 0x0D, 0x0A, 0x0D, 0x0A };
-
         private Socket socket;
         private ConcurrentQueue<SocketAsyncEventArgs> handlers = new ConcurrentQueue<SocketAsyncEventArgs>();
         private HttpOptions options;
@@ -72,59 +70,6 @@ namespace HyperSocket.Http
             IsRunning = false;
             socket?.Close();
         }
-        private static int IndexOf(byte[] source, byte[] dest, int offset = 0)
-        {
-            int accum = 0;
-            if (source.Length >= dest.Length && offset >= 0)
-            {
-                for (int index = offset; index < source.Length; ++index)
-                {
-                    if (accum == dest.Length)
-                        return index;
-                    else if (source[index] == dest[accum])
-                        accum += 1;
-                    else if (source[index] == dest[0])
-                        accum = 1;
-                    else
-                        accum = 0;
-                }
-            }
-            return -1;
-        }
-        private static string UrlDecode(byte[] source, int offset, int size)
-        {
-            if (source == null || offset < 0 || size < 0 || source.Length - offset - size < 0)
-                return null;
-            byte[] copy = new byte[size - offset];
-            int copy_index = 0;
-            while (offset < size)
-            {
-                switch (source[offset])
-                {
-                    case (byte)'+':
-                        copy[copy_index] = (byte)' ';
-                        break;
-                    case (byte)'%':
-                        if (size - offset < 2)
-                            return null;
-                        copy[copy_index] = (byte)((source[offset + 1] - (source[offset + 1] >= 65 ? 55 : 48)) * 16);
-                        copy[copy_index] += (byte)(source[offset + 2] - (source[offset + 2] >= 65 ? 55 : 48));
-                        offset += 2;
-                        break;
-                    default:
-                        copy[copy_index] = source[offset];
-                        break;
-                }
-                ++offset;
-                ++copy_index;
-            }
-            return Encoding.UTF8.GetString(copy, 0, copy_index);
-        }
-        private static string UrlDecode(string source)
-        {
-            byte[] temp = Encoding.UTF8.GetBytes(source);
-            return UrlDecode(temp, 0, temp.Length);
-        }
         private void AcceptProcess(object sender, SocketAsyncEventArgs e)
         {
             if (e.SocketError != SocketError.Success)
@@ -171,14 +116,6 @@ namespace HyperSocket.Http
             if (e.Count != options.BufferSize)
                 e.SetBuffer(e.Offset, options.BufferSize);
             Console.WriteLine(Encoding.ASCII.GetString(e.Buffer, e.Offset, e.BytesTransferred));
-            // HttpParser.Parse(e.Buffer, e.Offset, e.BytesTransferred);
-            // switch (e.LastOperation)
-            // {
-            //     case SocketAsyncOperation.Receive:
-            //         break;
-            //     case SocketAsyncOperation.Send:
-            //         break;
-            // }
             if (client.Request != null && client.Response.Content != null)
             {
                 client.Request.Content.Write(e.Buffer, e.Offset, e.BytesTransferred);
@@ -195,8 +132,7 @@ namespace HyperSocket.Http
                 int markIndex = IndexOf(e.Buffer, DCRLF, e.Offset);
                 if (markIndex == -1)
                 {
-                    Debug.Print("Invalid Format");
-                    ErrorHandle(client, e);
+                    ErrorHandle(client, e, "Invalid Format");
                     return;
                 }
                 using (StringReader reader = new StringReader(Encoding.ASCII.GetString(e.Buffer, e.Offset, markIndex - e.Offset - DCRLF.Length)))
@@ -208,8 +144,7 @@ namespace HyperSocket.Http
                     !startLine[2].StartsWith("HTTP/") ||
                     !Version.TryParse(startLine[2].Substring(5), out client.Request.Protocol))
                     {
-                        Debug.Print("invalid http protocol");
-                        ErrorHandle(client, e);
+                        ErrorHandle(client, e, "Invalid http protocol");
                         return;
                     }
                     string property;
@@ -218,9 +153,7 @@ namespace HyperSocket.Http
                         int colonIndex = property.IndexOf(":");
                         if (colonIndex == -1)
                         {
-
-                            Debug.Print("Invalid Header Format");
-                            ErrorHandle(client, e);
+                            ErrorHandle(client, e, "Invalid Header Format");
                             return;
                         }
                         client.Request.Header[property.Substring(0, colonIndex)] = property.Substring(colonIndex + 1);
@@ -238,83 +171,6 @@ namespace HyperSocket.Http
                     }
                 }
             }
-            switch (client.Request.Method)
-            {
-                case HttpMethod.Get:
-                    int questionIndex = client.Request.URL.IndexOf('?');
-                    if (questionIndex > 0)
-                    {
-                        var dataset = new Dictionary<string, string>();
-                        foreach (string property in client.Request.URL.Substring(questionIndex + 1).Split('&'))
-                        {
-                            int equalIndex = property.IndexOf("=");
-                            if (equalIndex >= 0)
-                                dataset[UrlDecode(property.Substring(0, equalIndex)).Trim()] = UrlDecode(property.Substring(equalIndex + 1)).Trim();
-                        }
-                        client.Request.dataset = dataset;
-                        client.Request.URL = client.Request.URL.Substring(0, questionIndex);
-                    }
-                    client.Request.URL = UrlDecode(client.Request.URL);
-                    break;
-                case HttpMethod.Post:
-                    int semicolonIndex = client.Request.ContentType.IndexOf(';');
-                    if(semicolonIndex == -1)    semicolonIndex = client.Request.ContentType.Length;
-                    switch (client.Request.ContentType.Substring(0, semicolonIndex))
-                    {
-                        case "application/x-www-form-urlencoded":
-                            var dataset = new Dictionary<string, string>();
-                            foreach (string property in Encoding.ASCII.GetString((client.Request.Content as MemoryStream).GetBuffer()).Split('&'))
-                            {
-                                int equalIndex = property.IndexOf("=");
-                                if (equalIndex >= 0)
-                                    dataset[UrlDecode(property.Substring(0, equalIndex).Trim())] = UrlDecode(property.Substring(equalIndex + 1).Trim());
-                            }
-                            client.Request.dataset = dataset;
-                            break;
-                        case "multipart/form-data":
-                            if (!client.Request.Header.ContainsKey("Content-Type:boundary"))
-                            {
-                                Debug.Print("Invalid boundary");
-                                ErrorHandle(client, e);
-                                return;
-                            }
-                            byte[] data = (client.Request.Content as MemoryStream).GetBuffer();
-                            byte[] boundary = Encoding.ASCII.GetBytes("--" + client.Request.Header["Content-Type:boundary"]);
-                            int headIndex = IndexOf(data, boundary, 0);
-                            int rearIndex = 0;
-                            List<HttpGeneralFormat> multipart = new List<HttpGeneralFormat>();
-                            while (true)
-                            {
-                                HttpGeneralFormat multipartdata = new HttpGeneralFormat();
-                                if (headIndex == -1 || (rearIndex = IndexOf(data, DCRLF, headIndex + CRLF.Length)) == -1)
-                                    break;
-                                using (StringReader reader = new StringReader(Encoding.ASCII.GetString(data, headIndex + CRLF.Length, rearIndex - headIndex - CRLF.Length)))
-                                {
-                                    string property;
-                                    while ((property = reader.ReadLine()) != null)
-                                    {
-                                        int colonIndex = property.IndexOf(":");
-                                        if (colonIndex < 0)
-                                            continue;
-                                        multipartdata.Header[property.Substring(0, colonIndex)] = property.Substring(colonIndex + 1);
-                                    }
-                                }
-                                if ((headIndex = IndexOf(data, boundary, rearIndex)) == -1)
-                                {
-                                    Debug.Print("Invalid boundary");
-                                    ErrorHandle(client, e);
-                                    return;
-                                }
-                                multipartdata.Content = new MemoryStream(headIndex - rearIndex - boundary.Length - CRLF.Length);
-                                multipartdata.Content.Write(data, rearIndex, headIndex - rearIndex - boundary.Length - CRLF.Length);
-                                multipart.Add(multipartdata);
-                                continue;
-                            }
-                            client.Request.dataset = multipart;
-                            break;
-                    }
-                    break;
-            }
             foreach (var router in routers)
             {
                 if ((client.Request.Match = Regex.Match(client.Request.URL, router.pattern)).Success)
@@ -329,6 +185,7 @@ namespace HyperSocket.Http
                         ErrorHandle(client, e);
                         return;
                     }
+                    break;
                 }
             }
             if (options.KeepAlive && client.Request.Connection.ToLower() == "keep-alive" && client.KeepAliveCount >= 0)
@@ -370,8 +227,9 @@ namespace HyperSocket.Http
             else if (!client.Socket.ReceiveAsync(e))
                 ReceiveProcess(client.Socket, e);
         }
-        private void ErrorHandle(UserToken client, SocketAsyncEventArgs e)
+        private void ErrorHandle(UserToken client, SocketAsyncEventArgs e, string message = null)
         {
+            Debug.Print(message);
             client.Dispose();
             client.Socket.Close();
             handlers.Enqueue(e);

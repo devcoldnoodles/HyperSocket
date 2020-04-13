@@ -42,6 +42,7 @@ namespace HyperSocket.Http
     {
         public ContentDisposition(string value) : base(value) {}
         public string FileName { get { return Parameters["filename"]; } set { Parameters["filename"] = value; } }
+        public string FileNameStar { get { return Parameters["filename*"]; } set { Parameters["filename*"] = value; } }
         public string Name { get { return Parameters["name"]; } set { Parameters["name"] = value; } }
     }
 

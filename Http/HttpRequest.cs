@@ -110,16 +110,9 @@ namespace HyperSocket.Http
         public Version Protocol;
         public Dictionary<string, object> Session { get; internal set; }
         public Match Match {get; internal set;}
-        internal object dataset;
         #endregion
 
         #region HttpRequest Methods
-        public string GetParameter(string param)
-        {
-            if (dataset != null && (Method == HttpMethod.Get || Method == HttpMethod.Post && ContentType.Value.ToLower() == "application/x-www-form-urlencoded"))
-                return ((Dictionary<string, string>)dataset)[param];
-            return string.Empty;
-        }
         #endregion
     }
 }
