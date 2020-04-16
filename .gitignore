@@ -1,7 +1,7 @@
-Http/.vscode/
-Http/bin/
-Http/obj/
+.vscode/
+bin/
+obj/
 *.csproj
-Http/Test.cs
+Test.cs
 Http/CSPExpression.cs
 Http/HttpParser.cs
