@@ -1,11 +1,13 @@
 using System;
 using System.Text;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 
 namespace HyperSocket.WebSocket
 {
-    public class WebSocket : WebClient
+    public class WebSocket
     {
+        public Socket socket;
         internal static string decoding(byte[] buf, long offset, long size)
         {
             if (buf.Length < 3)
@@ -96,18 +98,17 @@ namespace HyperSocket.WebSocket
         }
 
 
-        public bool GET(HttpRequest request, HttpResponse response)
-        {
-            if (request.Upgrade.ToLower() == "websocket")
-            {
-                response.StatusCode = HttpStatusCode.SwitchingProtocol;
-                response.Upgrade = "WebSocket";
-                response.Connection = "Upgrade";
-                response.SecWebSocketAccept = Convert.ToBase64String(SHA1CryptoServiceProvider.Create().ComputeHash(Encoding.UTF8.GetBytes(request.SecWebSocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
-                return true;
-            }
-            return false;
-        }
-        public abstract void RunningThread(WebSocketRequest request, WebSocketResponse response);
+        // public bool GET(HttpRequest request, HttpResponse response)
+        // {
+        //     if (request.Upgrade.ToLower() == "websocket")
+        //     {
+        //         response.StatusCode = HttpStatusCode.SwitchingProtocol;
+        //         response.Upgrade = "WebSocket";
+        //         response.Connection = "Upgrade";
+        //         response.SecWebSocketAccept = Convert.ToBase64String(SHA1CryptoServiceProvider.Create().ComputeHash(Encoding.UTF8.GetBytes(request.SecWebSocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
+        //         return true;
+        //     }
+        //     return false;
+        // }
     }
 }
