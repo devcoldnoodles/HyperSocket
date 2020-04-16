@@ -12,12 +12,13 @@ namespace HyperSocket.Http
 
         ~HttpGeneralFormat()
         {
-            Content?.Close();
+            Dispose();
         }
 
         public void Dispose()
         {
             Content?.Dispose();
+            Content = null;
         }
     }
 }

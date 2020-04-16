@@ -4,3 +4,4 @@ Http/obj/
 *.csproj
 Http/Test.cs
 Http/CSPExpression.cs
+Http/HttpParser.cs
