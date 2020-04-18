@@ -23,8 +23,8 @@ namespace HyperSocket.Http
 
         public void Start(HttpOptions value = null)
         {
-            if (value == null) options = new HttpOptions();
-            else options = value;
+            if (value == null)  options = new HttpOptions();
+            else                options = value;
             socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             try
             {
@@ -47,15 +47,11 @@ namespace HyperSocket.Http
                         case SocketAsyncOperation.Send:
                             SendProcess(sender, e);
                             break;
-                        default:
-                            //throw new ArgumentException("Undefined Operation");
-                            break;
                     }
                 });
                 handler.SetBuffer(new byte[options.BufferSize], 0, options.BufferSize);
                 handlers.Enqueue(handler);
             }
-            //source = new CancellationTokenSource();
             IsRunning = true;
             socket.Listen(options.BacklogSize);
             SocketAsyncEventArgs args = new SocketAsyncEventArgs();
@@ -66,7 +62,6 @@ namespace HyperSocket.Http
         }
         public void Stop()
         {
-            //source?.Cancel();
             IsRunning = false;
             socket?.Close();
         }
@@ -173,11 +168,11 @@ namespace HyperSocket.Http
             }
             foreach (var router in routers)
             {
-                if ((client.Request.Match = Regex.Match(client.Request.URL, router.pattern)).Success)
+                if ((client.Request.Match = Regex.Match(client.Request.URL, router.Pattern)).Success)
                 {
                     try
                     {
-                        router.handle(client.Request, client.Response);
+                        router.Handle(client.Request, client.Response);
                     }
                     catch (Exception exception)
                     {
