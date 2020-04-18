@@ -13,7 +13,7 @@ namespace HyperSocket.Http
 
         public HttpEventHandler()
         {
-            handle = (req, res) =>
+            Handle = (req, res) =>
             {
                 switch (req.Method)
                 {
