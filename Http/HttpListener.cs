@@ -201,6 +201,7 @@ namespace HyperSocket.Http
                 client.Response.Connection = "keep-alive";
                 client.Response.KeepAlive = $"timeout={options.KeepAliveTimeout},max={--client.KeepAliveCount}";
             }
+            
             string output = client.Response.ToString();
             e.SetBuffer(e.Offset, Encoding.UTF8.GetBytes(output, 0, output.Length, e.Buffer, e.Offset));
             e.UserToken = client;
