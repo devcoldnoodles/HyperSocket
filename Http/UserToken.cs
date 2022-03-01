@@ -13,7 +13,7 @@ namespace HyperSocket.Http
 
         public void Dispose()
         {
-            Socket.Close();
+            Socket?.Close();
             Request?.Dispose();
             Response?.Dispose();
         }

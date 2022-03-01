@@ -69,6 +69,7 @@ namespace HyperSocket.Http
         {
             if (e.SocketError != SocketError.Success)
                 return;
+
             if (handlers.TryDequeue(out SocketAsyncEventArgs handler))
             {
                 handler.UserToken = new UserToken
@@ -86,6 +87,7 @@ namespace HyperSocket.Http
                         //Content = new MemoryStream(0),
                     }
                 };
+
                 if (!e.AcceptSocket.ReceiveAsync(handler))
                     ReceiveProcess(e.AcceptSocket, handler);
             }
@@ -102,16 +104,22 @@ namespace HyperSocket.Http
         }
         private void ReceiveProcess(object sender, SocketAsyncEventArgs e)
         {
-            UserToken client = (UserToken)e.UserToken;
+            UserToken client = e.UserToken as UserToken;
+            if (client == null)
+                return;
+
             if (e.SocketError != SocketError.Success || e.BytesTransferred == 0)
             {
                 ErrorHandle(client, e);
                 return;
             }
+
             if (e.Count != options.BufferSize)
                 e.SetBuffer(e.Offset, options.BufferSize);
-            Console.WriteLine(Encoding.ASCII.GetString(e.Buffer, e.Offset, e.BytesTransferred));
-            if (client.Request != null && client.Response.Content != null)
+
+            Debug.Print(Encoding.ASCII.GetString(e.Buffer, e.Offset, e.BytesTransferred));
+
+            if (client.Request?.Content != null)
             {
                 client.Request.Content.Write(e.Buffer, e.Offset, e.BytesTransferred);
                 if (client.Request.Content.Position < client.Request.Content.Length)
@@ -123,13 +131,14 @@ namespace HyperSocket.Http
             }
             else
             {
-                client.Request = client.Request = new HttpRequest();
+                client.Request = new HttpRequest();
                 int markIndex = IndexOf(e.Buffer, DCRLF, e.Offset);
                 if (markIndex == -1)
                 {
                     ErrorHandle(client, e, "Invalid Format");
                     return;
                 }
+
                 using (StringReader reader = new StringReader(Encoding.ASCII.GetString(e.Buffer, e.Offset, markIndex - e.Offset - DCRLF.Length)))
                 {
                     string[] startLine = reader.ReadLine().Split(' ');
@@ -154,6 +163,7 @@ namespace HyperSocket.Http
                         client.Request.Header[property.Substring(0, colonIndex)] = property.Substring(colonIndex + 1);
                     }
                 }
+
                 if (int.TryParse(client.Request.ContentLength, out int contentLength))
                 {
                     client.Request.Content = new MemoryStream(new byte[contentLength], 0, contentLength, true, true);
@@ -166,6 +176,7 @@ namespace HyperSocket.Http
                     }
                 }
             }
+
             foreach (var router in routers)
             {
                 if ((client.Request.Match = Regex.Match(client.Request.URL, router.Pattern)).Success)
@@ -183,6 +194,7 @@ namespace HyperSocket.Http
                     break;
                 }
             }
+
             if (options.KeepAlive && client.Request.Connection.ToLower() == "keep-alive" && client.KeepAliveCount >= 0)
             {
                 client.Timeout = DateTime.Now.AddSeconds(options.KeepAliveTimeout);
@@ -195,25 +207,32 @@ namespace HyperSocket.Http
             if (!client.Socket.SendAsync(e))
                 SendProcess(client.Socket, e);
         }
+        
         private void SendProcess(object sender, SocketAsyncEventArgs e)
         {
-            UserToken client = (UserToken)e.UserToken;
+            UserToken client = e.UserToken as UserToken;
+            if (client == null)
+                return;
+
             if (e.SocketError != SocketError.Success)
             {
                 ErrorHandle(client, e);
                 return;
             }
-            if (client.Response.Content != null)
+
+            if (client.Response?.Content != null)
             {
-                if (client.Response.Content.Position >= client.Response.Content.Length)
+                do
                 {
-                    client.Response.Content.Close();
-                    client.Response.Content = null;
-                    goto WaitRecv;
-                }
-                e.SetBuffer(e.Offset, client.Response.Content.Read(e.Buffer, e.Offset, e.Buffer.Length));
-                if (!client.Socket.SendAsync(e))
-                    SendProcess(sender, e);
+                    if (client.Response.Content.Position >= client.Response.Content.Length)
+                    {
+                        client.Response.Content.Close();
+                        client.Response.Content = null;
+                        goto WaitRecv;
+                    }
+
+                    e.SetBuffer(e.Offset, client.Response.Content.Read(e.Buffer, e.Offset, e.Buffer.Length));
+                } while (!client.Socket.SendAsync(e));
                 return;
             }
         WaitRecv:
@@ -224,10 +243,12 @@ namespace HyperSocket.Http
         }
         private void ErrorHandle(UserToken client, SocketAsyncEventArgs e, string message = null)
         {
-            Debug.Print(message);
-            client.Dispose();
-            client.Socket.Close();
-            handlers.Enqueue(e);
+            if(message != null)
+                Debug.Print(message);
+
+            client?.Dispose();
+            client?.Socket?.Close();
+            handlers?.Enqueue(e);
         }
     }
 }
